@@ -1,0 +1,18 @@
+# 배포용 설정. 값은 파일에 적지 않고 서버의 환경 변수로 넣는다(deployment.md 4장).
+# DB는 lolog-api와 같은 DB_URL(lolog DB, public 스키마)이고, 스키마는 DB_URL의 currentSchema로 지정한다.
+# JWT_SECRET, INTERNAL_TOKEN, API_INTERNAL_URL은 application.yml이 읽는다.
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+  data:
+    # 리프레시 토큰 저장. lolog-api와 같은 이름(REDIS_HOST, REDIS_PORT, REDIS_PASSWORD)이다.
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+      password: ${REDIS_PASSWORD}
+
+server:
+  # HTTPS는 Nginx가 끝낸다. Nginx가 붙인 X-Forwarded-* 헤더로 원래 주소(https, 호스트)를 알아낸다(deployment.md 4장).
+  forward-headers-strategy: framework
