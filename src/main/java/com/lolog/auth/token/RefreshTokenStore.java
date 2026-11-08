@@ -10,6 +10,7 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.Optional;
+import java.util.Set;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
@@ -80,7 +81,16 @@ public class RefreshTokenStore {
 		take(token);
 	}
 
-	static String hash(String token) {
+	// 그 회원의 리프레시 토큰을 모두 지운다(탈퇴, FR-AUTH-05).
+	public void revokeAll(long userId) {
+		Set<String> hashes = redis.opsForSet().members(USER_KEY + userId);
+		if (hashes != null && !hashes.isEmpty()) {
+			redis.delete(hashes.stream().map(hash -> TOKEN_KEY + hash).toList());
+		}
+		redis.delete(USER_KEY + userId);
+	}
+
+		static String hash(String token) {
 		try {
 			byte[] digest = MessageDigest.getInstance("SHA-256").digest(token.getBytes(StandardCharsets.UTF_8));
 			return HexFormat.of().formatHex(digest);

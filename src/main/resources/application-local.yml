@@ -12,3 +12,8 @@ spring:
     redis:
       host: localhost
       port: 6379
+
+lolog:
+  api:
+    # 내 PC에서 띄운 lolog-api
+    internal-url: http://localhost:8080
