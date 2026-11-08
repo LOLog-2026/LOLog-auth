@@ -14,7 +14,7 @@ PostgreSQL·Redis는 lolog-api의 `compose.yaml`이 띄운 것을 같이 쓰고,
    docker compose -f <lolog-api 폴더>/compose.yaml exec postgres createdb -U myuser lolog_auth
    ```
 
-3. `cp .env.example .env` 후 `POSTGRES_PASSWORD`에 lolog-api `.env`와 같은 값을 넣는다.
+3. `cp .env.example .env` 후 `POSTGRES_PASSWORD`, `JWT_SECRET`에 lolog-api `.env`와 같은 값을 넣는다. `JWT_SECRET`이 같아야 여기서 받은 토큰이 lolog-api에서 통한다.
 4. `./mvnw spring-boot:run -Dspring-boot.run.profiles=local` (포트 8081)
 
 ## 테스트
