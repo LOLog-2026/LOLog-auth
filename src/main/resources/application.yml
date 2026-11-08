@@ -23,6 +23,12 @@ lolog:
   auth:
     # 액세스 토큰(JWT, HS256) 서명 비밀값. lolog-api와 같은 값이고 32바이트 이상이어야 한다. 없으면 서버가 뜨지 않는다.
     jwt-secret: ${JWT_SECRET}
+  internal:
+    # lolog-api /internal 주소의 X-Internal-Token 값. lolog-api·워커와 같은 값이다. 없으면 서버가 뜨지 않는다.
+    token: ${INTERNAL_TOKEN}
+  api:
+    # 탈퇴 때 DELETE /internal/users/{id}를 부를 lolog-api 주소(deployment.md 4장, 배포는 http://api:8080)
+    internal-url: ${API_INTERNAL_URL}
 
 logging:
   level:

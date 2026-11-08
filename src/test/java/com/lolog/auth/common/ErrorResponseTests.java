@@ -5,6 +5,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.lolog.auth.token.AccessTokenVerifier;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import org.junit.jupiter.api.Test;
@@ -21,7 +22,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 // 오류가 모두 ErrorResponse { code, message, field } 모양으로 나가는지 시험용 컨트롤러로 확인한다.
 @WebMvcTest(ErrorResponseTests.TestController.class)
-@Import({ ErrorResponseTests.TestController.class, GlobalExceptionHandler.class })
+// @WebMvcTest도 @CurrentUser 처리기(CurrentUserResolver)를 올리므로 그 검사기와 시계를 같이 넣는다.
+@Import({ ErrorResponseTests.TestController.class, GlobalExceptionHandler.class, AccessTokenVerifier.class,
+		TimeConfig.class })
 class ErrorResponseTests {
 
 	@Autowired

@@ -31,6 +31,10 @@ public class User {
 	@Column(name = "deleted_at")
 	private OffsetDateTime deletedAt;
 
+	// lolog-api가 이 회원의 데이터를 다 지운 시각. 탈퇴했는데 비어 있으면 다시 부른다.
+	@Column(name = "data_deleted_at")
+	private OffsetDateTime dataDeletedAt;
+
 	protected User() {
 	}
 
@@ -57,6 +61,10 @@ public class User {
 		this.deletedAt = now;
 	}
 
+	public void markDataDeleted(OffsetDateTime now) {
+		this.dataDeletedAt = now;
+	}
+
 	public boolean isDeleted() {
 		return deletedAt != null;
 	}
@@ -79,6 +87,10 @@ public class User {
 
 	public OffsetDateTime getDeletedAt() {
 		return deletedAt;
+	}
+
+	public OffsetDateTime getDataDeletedAt() {
+		return dataDeletedAt;
 	}
 
 }

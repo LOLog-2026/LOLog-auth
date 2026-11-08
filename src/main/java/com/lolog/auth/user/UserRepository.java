@@ -1,5 +1,6 @@
 package com.lolog.auth.user;
 
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -11,5 +12,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
 	boolean existsByEmailAndDeletedAtIsNull(String email);
 
 	Optional<User> findByIdAndDeletedAtIsNull(Long id);
+
+	// 탈퇴했지만 lolog-api 데이터 삭제가 아직 끝나지 않은 회원
+	List<User> findByDeletedAtIsNotNullAndDataDeletedAtIsNull();
 
 }
