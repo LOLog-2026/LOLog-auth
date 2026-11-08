@@ -18,3 +18,14 @@ spring:
 server:
   # 컨테이너 포트(deployment.md 3장)
   port: 8081
+
+lolog:
+  auth:
+    # 액세스 토큰(JWT, HS256) 서명 비밀값. lolog-api와 같은 값이고 32바이트 이상이어야 한다. 없으면 서버가 뜨지 않는다.
+    jwt-secret: ${JWT_SECRET}
+
+logging:
+  level:
+    # 유니크 제약에 걸리면 Hibernate가 WARN으로 겹친 값(이메일 등)을 찍는다. 개인 정보가 로그에 남지 않게 끈다.
+    # 처리하지 못한 DB 오류는 GlobalExceptionHandler가 메시지 없이 남긴다.
+    org.hibernate.orm.jdbc.error: ERROR
