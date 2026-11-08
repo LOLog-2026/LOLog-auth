@@ -8,12 +8,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.jayway.jsonpath.JsonPath;
 import com.lolog.auth.TestContainers;
+import com.lolog.auth.token.WithdrawnUsers;
 import com.lolog.auth.user.SocialAccount;
 import com.lolog.auth.user.SocialAccountRepository;
 import com.lolog.auth.user.SocialProvider;
 import com.lolog.auth.user.User;
 import com.lolog.auth.user.UserRepository;
 import java.io.IOException;
+import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,6 +24,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -61,6 +64,9 @@ class WithdrawApiTests {
 
 	@Autowired
 	UserDataDeleter deleter;
+
+	@Autowired
+	StringRedisTemplate redis;
 
 	@BeforeEach
 	void resetApi() {
@@ -110,6 +116,23 @@ class WithdrawApiTests {
 			.andExpect(jsonPath("$.code").value("INVALID_TOKEN"));
 		refresh(JsonPath.read(second, "$.refreshToken")).andExpect(status().isUnauthorized())
 			.andExpect(jsonPath("$.code").value("INVALID_TOKEN"));
+	}
+
+	@Test
+	void 탈퇴하면_lolog_api가_남은_액세스_토큰을_막도록_Redis에_31분_동안_남긴다() throws Exception {
+		String email = newEmail();
+		String token = accessToken(signup(email));
+		long userId = users.findByEmailAndDeletedAtIsNull(email).orElseThrow().getId();
+		assertThat(redis.hasKey("lolog:auth:withdrawn:" + userId)).isFalse();
+
+		withdraw(token).andExpect(status().isNoContent());
+
+		String key = "lolog:auth:withdrawn:" + userId;
+		assertThat(redis.opsForValue().get(key)).matches("\\d+");
+		// 키 이름과 31분은 lolog-api와 같이 쓰는 약속이라 값으로 적어 둔다.
+		assertThat(WithdrawnUsers.TTL).isEqualTo(Duration.ofMinutes(31));
+		assertThat(Duration.ofSeconds(redis.getExpire(key))).isBetween(Duration.ofMinutes(31).minusSeconds(5),
+				Duration.ofMinutes(31));
 	}
 
 	@Test
