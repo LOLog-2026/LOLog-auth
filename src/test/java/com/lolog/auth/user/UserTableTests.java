@@ -60,34 +60,34 @@ class UserTableTests {
 	void 소셜_계정_하나는_살아_있는_회원_하나에만_붙는다() {
 		User a = users.saveAndFlush(User.social("a@example.com", NOW));
 		User b = users.saveAndFlush(User.social("b@example.com", NOW));
-		socialAccounts.saveAndFlush(new SocialAccount(a.getId(), SocialProvider.KAKAO, "k-1", NOW));
+		socialAccounts.saveAndFlush(new SocialAccount(a.getId(), SocialProvider.NAVER, "n-1", NOW));
 
 		assertThatThrownBy(
-				() -> socialAccounts.saveAndFlush(new SocialAccount(b.getId(), SocialProvider.KAKAO, "k-1", NOW)))
+				() -> socialAccounts.saveAndFlush(new SocialAccount(b.getId(), SocialProvider.NAVER, "n-1", NOW)))
 			.isInstanceOf(DataIntegrityViolationException.class);
 	}
 
 	@Test
 	void 회원_하나에는_회사마다_소셜_계정_하나만_붙는다() {
 		User a = users.saveAndFlush(User.social("a@example.com", NOW));
-		socialAccounts.saveAndFlush(new SocialAccount(a.getId(), SocialProvider.KAKAO, "k-1", NOW));
+		socialAccounts.saveAndFlush(new SocialAccount(a.getId(), SocialProvider.NAVER, "n-1", NOW));
 
 		assertThatThrownBy(
-				() -> socialAccounts.saveAndFlush(new SocialAccount(a.getId(), SocialProvider.KAKAO, "k-2", NOW)))
+				() -> socialAccounts.saveAndFlush(new SocialAccount(a.getId(), SocialProvider.NAVER, "n-2", NOW)))
 			.isInstanceOf(DataIntegrityViolationException.class);
 	}
 
 	@Test
 	void 탈퇴한_회원의_소셜_계정은_다른_회원에_다시_붙일_수_있다() {
 		User a = users.saveAndFlush(User.social("a@example.com", NOW));
-		SocialAccount link = socialAccounts.saveAndFlush(new SocialAccount(a.getId(), SocialProvider.KAKAO, "k-1", NOW));
+		SocialAccount link = socialAccounts.saveAndFlush(new SocialAccount(a.getId(), SocialProvider.NAVER, "n-1", NOW));
 		link.delete(NOW);
 		socialAccounts.saveAndFlush(link);
 		User b = users.saveAndFlush(User.social("b@example.com", NOW));
 
-		socialAccounts.saveAndFlush(new SocialAccount(b.getId(), SocialProvider.KAKAO, "k-1", NOW));
+		socialAccounts.saveAndFlush(new SocialAccount(b.getId(), SocialProvider.NAVER, "n-1", NOW));
 
-		assertThat(socialAccounts.findByProviderAndProviderUserIdAndDeletedAtIsNull(SocialProvider.KAKAO, "k-1"))
+		assertThat(socialAccounts.findByProviderAndProviderUserIdAndDeletedAtIsNull(SocialProvider.NAVER, "n-1"))
 			.get()
 			.extracting(SocialAccount::getUserId)
 			.isEqualTo(b.getId());
@@ -95,8 +95,11 @@ class UserTableTests {
 
 	@Test
 	void 주소의_provider는_소문자만_받는다() {
-		assertThat(SocialProvider.fromPath("kakao")).contains(SocialProvider.KAKAO);
-		assertThat(SocialProvider.fromPath("KAKAO")).isEmpty();
+		assertThat(SocialProvider.fromPath("naver")).contains(SocialProvider.NAVER);
+		assertThat(SocialProvider.fromPath("google")).contains(SocialProvider.GOOGLE);
+		assertThat(SocialProvider.fromPath("NAVER")).isEmpty();
+		// 카카오는 뺐다(LOLog-docs PR #35).
+		assertThat(SocialProvider.fromPath("kakao")).isEmpty();
 		assertThat(SocialProvider.fromPath("apple")).isEmpty();
 	}
 

@@ -57,8 +57,8 @@ public class MeService {
 		refreshTokens.revokeAll(userId);
 	}
 
-	// 연결된 회사. 순서는 KAKAO, GOOGLE, NAVER로 고정한다.
-	List<String> linkedProviders(long userId) {
+	// 연결된 회사. 순서는 GOOGLE, NAVER로 고정한다.
+	public List<String> linkedProviders(long userId) {
 		return socialAccounts.findByUserIdAndDeletedAtIsNull(userId)
 			.stream()
 			.map(SocialAccount::getProvider)

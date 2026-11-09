@@ -81,7 +81,7 @@ class WithdrawApiTests {
 		String email = newEmail();
 		String token = accessToken(signup(email));
 		long userId = users.findByEmailAndDeletedAtIsNull(email).orElseThrow().getId();
-		socialAccounts.saveAndFlush(new SocialAccount(userId, SocialProvider.KAKAO, "k-" + userId, OffsetDateTime.now()));
+		socialAccounts.saveAndFlush(new SocialAccount(userId, SocialProvider.NAVER, "n-" + userId, OffsetDateTime.now()));
 
 		withdraw(token).andExpect(status().isNoContent());
 
