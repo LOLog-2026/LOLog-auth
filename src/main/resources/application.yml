@@ -1,0 +1,37 @@
+spring:
+  application:
+    name: lolog-auth
+  jpa:
+    # 요청 내내 DB 세션을 열어 두지 않는다. 응답은 서비스 안에서 DTO로 만든다.
+    open-in-view: false
+    hibernate:
+      # 테이블은 Flyway가 만들고, JPA는 엔티티와 테이블이 맞는지만 확인한다.
+      ddl-auto: validate
+  flyway:
+    # 배포에서는 메인 백엔드(lolog-api)와 같은 DB·스키마를 쓴다(deployment.md 4장).
+    # 이력 테이블을 나누고(메인 백엔드는 flyway_schema_history_api),
+    # 상대 서비스의 테이블이 먼저 있어도 V1부터 적용되도록 기준 버전을 0으로 둔다.
+    table: flyway_schema_history_auth
+    baseline-on-migrate: true
+    baseline-version: 0
+
+server:
+  # 컨테이너 포트(deployment.md 3장)
+  port: 8081
+
+lolog:
+  auth:
+    # 액세스 토큰(JWT, HS256) 서명 비밀값. lolog-api와 같은 값이고 32바이트 이상이어야 한다. 없으면 서버가 뜨지 않는다.
+    jwt-secret: ${JWT_SECRET}
+  internal:
+    # lolog-api /internal 주소의 X-Internal-Token 값. lolog-api·워커와 같은 값이다. 없으면 서버가 뜨지 않는다.
+    token: ${INTERNAL_TOKEN}
+  api:
+    # 탈퇴 때 DELETE /internal/users/{id}를 부를 lolog-api 주소(deployment.md 4장, 배포는 http://api:8080)
+    internal-url: ${API_INTERNAL_URL}
+
+logging:
+  level:
+    # 유니크 제약에 걸리면 Hibernate가 WARN으로 겹친 값(이메일 등)을 찍는다. 개인 정보가 로그에 남지 않게 끈다.
+    # 처리하지 못한 DB 오류는 GlobalExceptionHandler가 메시지 없이 남긴다.
+    org.hibernate.orm.jdbc.error: ERROR
