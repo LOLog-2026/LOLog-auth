@@ -23,9 +23,10 @@ spring:
       mail.smtp.starttls.enable: true
       mail.smtp.starttls.required: true
       # 메일 서버가 응답하지 않아도 요청이 오래 붙잡히지 않게 한다(밀리초).
-      mail.smtp.connectiontimeout: 5000
-      mail.smtp.timeout: 5000
-      mail.smtp.writetimeout: 5000
+      # Gmail은 보내기 한 번에 4초 안팎이 걸려서(로컬에서 잼) 넉넉히 10초로 둔다.
+      mail.smtp.connectiontimeout: 10000
+      mail.smtp.timeout: 10000
+      mail.smtp.writetimeout: 10000
 
 lolog:
   mail:
