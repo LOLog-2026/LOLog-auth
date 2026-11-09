@@ -18,7 +18,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
-// 소셜 로그인(FR-AUTH-02)과 내 계정에 소셜 계정 연결(FR-AUTH-06). 계정 합치기는 없다.
+// 소셜 로그인(FR-AUTH-02)과 내 계정에 소셜 계정 연결·해제(FR-AUTH-06). 계정 합치기는 없다.
 // 회사에 토큰을 확인하는 동안 DB 트랜잭션을 열어 두지 않으려고, DB 작업만 TransactionTemplate으로 묶는다.
 @Service
 public class SocialAuthService {
@@ -120,6 +120,26 @@ public class SocialAuthService {
 				throw alreadyLinked();
 			}
 		}
+		return me.linkedProviders(userId);
+	}
+
+	// 내 계정에서 그 회사 연결을 끊는다(소프트 삭제). 연결돼 있지 않으면 그대로 200이다.
+	// 비밀번호가 없는 회원의 마지막 소셜 연결이면 다시 로그인할 수 없게 되므로 409 LAST_LOGIN_METHOD로 막는다.
+	// 회원 행을 잠가, 두 회사를 동시에 끊어 로그인 수단이 다 없어지는 일을 막는다.
+	public List<String> unlink(long userId, SocialProvider provider) {
+		tx.executeWithoutResult(status -> {
+			User user = users.lockActive(userId)
+				.orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "INVALID_TOKEN", "회원이 없습니다."));
+			List<SocialAccount> linked = socialAccounts.findByUserIdAndDeletedAtIsNull(userId);
+			Optional<SocialAccount> target = linked.stream().filter(account -> account.getProvider() == provider).findFirst();
+			if (target.isEmpty()) {
+				return;
+			}
+			if (user.getPasswordHash() == null && linked.size() == 1) {
+				throw new ApiException(HttpStatus.CONFLICT, "LAST_LOGIN_METHOD", "마지막 로그인 수단은 끊을 수 없습니다.");
+			}
+			target.get().delete(OffsetDateTime.now(clock));
+		});
 		return me.linkedProviders(userId);
 	}
 

@@ -7,6 +7,7 @@ import com.lolog.auth.user.SocialProvider;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import java.util.List;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -36,6 +37,12 @@ public class SocialAuthController {
 		return new LinkedProvidersResponse(service.link(userId, provider(provider), request.providerToken()));
 	}
 
+	// DELETE /auth/me/social/{provider} → 200 { linkedProviders }. 연결돼 있지 않아도 200이다.
+	@DeleteMapping("/auth/me/social/{provider}")
+	public LinkedProvidersResponse unlink(@CurrentUser Long userId, @PathVariable String provider) {
+		return new LinkedProvidersResponse(service.unlink(userId, provider(provider)));
+	}
+
 	// 주소의 provider는 소문자 google, naver만 받는다. 그 밖(kakao 포함)은 400 INVALID_REQUEST.
 	private static SocialProvider provider(String value) {
 		return SocialProvider.fromPath(value)
@@ -51,7 +58,7 @@ public class SocialAuthController {
 			@JsonProperty("isNewUser") boolean isNewUser) {
 	}
 
-	// POST /auth/me/social/{provider} 200 (MeResponse의 한 필드)
+	// POST·DELETE /auth/me/social/{provider} 200 (MeResponse의 한 필드)
 	public record LinkedProvidersResponse(List<String> linkedProviders) {
 	}
 

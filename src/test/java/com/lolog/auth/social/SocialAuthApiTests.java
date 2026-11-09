@@ -1,6 +1,7 @@
 package com.lolog.auth.social;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -33,7 +34,7 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
-// 소셜 로그인(FR-AUTH-02)과 계정 연결(FR-AUTH-06). 구글·네이버는 가짜 서버로 대신한다. Docker가 켜져 있어야 한다.
+// 소셜 로그인(FR-AUTH-02)과 계정 연결·해제(FR-AUTH-06). 구글·네이버는 가짜 서버로 대신한다. Docker가 켜져 있어야 한다.
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import(TestContainers.class)
@@ -369,6 +370,84 @@ class SocialAuthApiTests {
 	void 연결의_지원하지_않는_provider는_400이다() throws Exception {
 		link(emailUser(), "kakao", "token").andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.field").value("provider"));
+	}
+
+	// ── 연동 해제 ──
+
+	@Test
+	void 연동을_해제하면_200과_남은_linkedProviders이고_그_소셜로는_더_이_계정에_들어오지_않는다() throws Exception {
+		User user = emailUser();
+		String sub = newId();
+		link(user, "google", fake.idToken(sub, sub + "@gmail.com", Map.of())).andExpect(status().isOk());
+		String id = newId();
+		fake.naverProfiles.put("unlink-n", FakeSocialProviders.naverProfile(id, id + "@example.com"));
+		link(user, "naver", "unlink-n").andExpect(status().isOk());
+
+		unlink(user, "google").andExpect(status().isOk())
+			.andExpect(jsonPath("$.linkedProviders.length()").value(1))
+			.andExpect(jsonPath("$.linkedProviders[0]").value("NAVER"));
+		assertThat(socialAccounts.findByProviderAndProviderUserIdAndDeletedAtIsNull(SocialProvider.GOOGLE, sub))
+			.isEmpty();
+
+		// 끊은 구글 계정으로 로그인하면 이 계정이 아니라 새 계정이 생긴다.
+		social("google", fake.idToken(sub, sub + "@gmail.com", Map.of())).andExpect(status().isOk())
+			.andExpect(jsonPath("$.isNewUser").value(true));
+	}
+
+	@Test
+	void 연동돼_있지_않은_회사를_해제하면_200으로_그대로다() throws Exception {
+		unlink(emailUser(), "naver").andExpect(status().isOk())
+			.andExpect(jsonPath("$.linkedProviders.length()").value(0));
+	}
+
+	@Test
+	void 비밀번호가_없는_회원의_마지막_소셜_연결은_409_LAST_LOGIN_METHOD이고_끊지_않는다() throws Exception {
+		String id = newId();
+		fake.naverProfiles.put("only-n", FakeSocialProviders.naverProfile(id, id + "@example.com"));
+		social("naver", "only-n").andExpect(status().isOk());
+		User user = users.findByEmailAndDeletedAtIsNull(id + "@example.com").orElseThrow();
+
+		unlink(user, "naver").andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("LAST_LOGIN_METHOD"));
+		assertThat(socialAccounts.findByProviderAndProviderUserIdAndDeletedAtIsNull(SocialProvider.NAVER, id))
+			.isPresent();
+	}
+
+	@Test
+	void 비밀번호가_없어도_다른_소셜이_남으면_끊을_수_있다() throws Exception {
+		String id = newId();
+		fake.naverProfiles.put("two-n", FakeSocialProviders.naverProfile(id, id + "@example.com"));
+		social("naver", "two-n").andExpect(status().isOk());
+		User user = users.findByEmailAndDeletedAtIsNull(id + "@example.com").orElseThrow();
+		link(user, "google", fake.idToken(newId(), "x@gmail.com", Map.of())).andExpect(status().isOk());
+
+		unlink(user, "naver").andExpect(status().isOk())
+			.andExpect(jsonPath("$.linkedProviders[0]").value("GOOGLE"));
+		// 남은 구글은 마지막 수단이라 막힌다.
+		unlink(user, "google").andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("LAST_LOGIN_METHOD"));
+	}
+
+	@Test
+	void 비밀번호가_있으면_마지막_소셜_연결도_끊을_수_있다() throws Exception {
+		User user = emailUser();
+		link(user, "google", fake.idToken(newId(), "y@gmail.com", Map.of())).andExpect(status().isOk());
+
+		unlink(user, "google").andExpect(status().isOk())
+			.andExpect(jsonPath("$.linkedProviders.length()").value(0));
+	}
+
+	@Test
+	void 해제는_액세스_토큰이_없으면_401이고_모르는_provider는_400이다() throws Exception {
+		mvc.perform(delete("/auth/me/social/google")).andExpect(status().isUnauthorized())
+			.andExpect(jsonPath("$.code").value("INVALID_TOKEN"));
+		unlink(emailUser(), "kakao").andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.field").value("provider"));
+	}
+
+	private ResultActions unlink(User user, String provider) throws Exception {
+		return mvc.perform(delete("/auth/me/social/" + provider)
+			.header("Authorization", "Bearer " + tokens.issue(user.getId()).accessToken()));
 	}
 
 	private ResultActions social(String provider, String providerToken) throws Exception {
