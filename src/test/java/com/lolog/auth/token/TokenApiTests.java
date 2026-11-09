@@ -7,6 +7,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.jayway.jsonpath.JsonPath;
 import com.lolog.auth.MutableClock;
+import com.lolog.auth.SignupCodes;
+import com.lolog.auth.email.EmailCodeStore;
 import com.lolog.auth.TestContainers;
 import com.lolog.auth.user.User;
 import com.lolog.auth.user.UserRepository;
@@ -30,6 +32,9 @@ import org.springframework.test.web.servlet.ResultActions;
 @AutoConfigureMockMvc
 @Import({ TestContainers.class, MutableClock.Config.class })
 class TokenApiTests {
+
+	@Autowired
+	EmailCodeStore codes;
 
 	@Autowired
 	MockMvc mvc;
@@ -155,7 +160,7 @@ class TokenApiTests {
 	private String signup(String email) throws Exception {
 		return mvc
 			.perform(post("/auth/signup").contentType(MediaType.APPLICATION_JSON)
-				.content("{\"email\":\"" + email + "\",\"password\":\"password1\"}"))
+				.content(SignupCodes.signupJson(codes, email, "password1")))
 			.andExpect(status().isCreated())
 			.andReturn()
 			.getResponse()

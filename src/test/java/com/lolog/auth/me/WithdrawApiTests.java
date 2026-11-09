@@ -8,6 +8,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.jayway.jsonpath.JsonPath;
 import com.lolog.auth.TestContainers;
+import com.lolog.auth.SignupCodes;
+import com.lolog.auth.email.EmailCodeStore;
 import com.lolog.auth.token.WithdrawnUsers;
 import com.lolog.auth.user.SocialAccount;
 import com.lolog.auth.user.SocialAccountRepository;
@@ -52,6 +54,9 @@ class WithdrawApiTests {
 	static void apiUrl(DynamicPropertyRegistry registry) {
 		registry.add("lolog.api.internal-url", api::url);
 	}
+
+	@Autowired
+	EmailCodeStore codes;
 
 	@Autowired
 	MockMvc mvc;
@@ -143,7 +148,7 @@ class WithdrawApiTests {
 		mvc.perform(post("/auth/login").contentType(MediaType.APPLICATION_JSON).content(json(email)))
 			.andExpect(status().isUnauthorized())
 			.andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"));
-		mvc.perform(post("/auth/signup").contentType(MediaType.APPLICATION_JSON).content(json(email)))
+		mvc.perform(post("/auth/signup").contentType(MediaType.APPLICATION_JSON).content(SignupCodes.signupJson(codes, email, "password1")))
 			.andExpect(status().isCreated());
 	}
 
@@ -195,7 +200,7 @@ class WithdrawApiTests {
 	}
 
 	private String signup(String email) throws Exception {
-		return mvc.perform(post("/auth/signup").contentType(MediaType.APPLICATION_JSON).content(json(email)))
+		return mvc.perform(post("/auth/signup").contentType(MediaType.APPLICATION_JSON).content(SignupCodes.signupJson(codes, email, "password1")))
 			.andExpect(status().isCreated())
 			.andReturn()
 			.getResponse()
