@@ -18,15 +18,25 @@ public class EmailAuthController {
 
 	private final EmailAuthService service;
 
-	public EmailAuthController(EmailAuthService service) {
+	private final EmailVerificationService verification;
+
+	public EmailAuthController(EmailAuthService service, EmailVerificationService verification) {
 		this.service = service;
+		this.verification = verification;
+	}
+
+	// POST /auth/email/code → 204. 가입 여부와 관계없이 같은 응답이다.
+	@PostMapping("/auth/email/code")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	public void sendCode(@Valid @RequestBody EmailCodeRequest request) {
+		verification.sendCode(request.email());
 	}
 
 	// POST /auth/signup → 201 TokenResponse
 	@PostMapping("/auth/signup")
 	@ResponseStatus(HttpStatus.CREATED)
 	public TokenResponse signup(@Valid @RequestBody SignupRequest request) {
-		return service.signup(request.email(), request.password());
+		return service.signup(request.email(), request.password(), request.code());
 	}
 
 	// POST /auth/login → 200 TokenResponse
@@ -35,9 +45,13 @@ public class EmailAuthController {
 		return service.login(request.email(), request.password());
 	}
 
-	// 가입 때는 이메일 형식(254자 이하)과 비밀번호 규칙(8~64자, 영문·숫자 포함)을 검사한다(api-dto.md 1장).
+	public record EmailCodeRequest(@NotBlank @Email @Size(max = 254) String email) {
+	}
+
+	// 가입 때는 이메일 형식(254자 이하)과 비밀번호 규칙(8~64자, 영문·숫자 포함), 인증번호(6자리 숫자)를 검사한다(api-dto.md 1장).
 	public record SignupRequest(@NotBlank @Email @Size(max = 254) String email,
-			@NotNull @Size(min = 8, max = 64) @Pattern(regexp = "^(?=.*[A-Za-z])(?=.*[0-9]).*$") String password) {
+			@NotNull @Size(min = 8, max = 64) @Pattern(regexp = "^(?=.*[A-Za-z])(?=.*[0-9]).*$") String password,
+			@NotNull @Pattern(regexp = "^[0-9]{6}$") String code) {
 	}
 
 	// 로그인은 비밀번호 규칙을 검사하지 않는다. 값이 빠졌을 때만 400이다.

@@ -12,6 +12,26 @@ spring:
       host: ${REDIS_HOST}
       port: ${REDIS_PORT}
       password: ${REDIS_PASSWORD}
+  # 가입 인증번호 메일. Gmail SMTP(smtp.gmail.com:587, STARTTLS)와 보내는 계정의 앱 비밀번호(deployment.md 4장).
+  mail:
+    host: ${MAIL_HOST}
+    port: ${MAIL_PORT}
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+      mail.smtp.starttls.required: true
+      # 메일 서버가 응답하지 않아도 요청이 오래 붙잡히지 않게 한다(밀리초).
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
+
+lolog:
+  mail:
+    # 실제로 보낸다. 로컬 전용 콘솔 출력(log-only)은 배포에서 켜지 않는다.
+    log-only: false
+    from: ${MAIL_FROM}
 
 server:
   # HTTPS는 Nginx가 끝낸다. Nginx가 붙인 X-Forwarded-* 헤더로 원래 주소(https, 호스트)를 알아낸다(deployment.md 4장).

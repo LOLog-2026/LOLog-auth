@@ -13,7 +13,21 @@ spring:
       host: localhost
       port: 6379
 
+  # MAIL_LOG_ONLY=false로 실제 메일을 보내 볼 때만 쓴다(.env의 MAIL_* 값).
+  mail:
+    host: ${MAIL_HOST:}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+      mail.smtp.starttls.required: true
+
 lolog:
+  mail:
+    # 기본은 메일을 보내지 않고 인증번호를 콘솔에 찍는다(Gmail 계정 없이 시험).
+    log-only: ${MAIL_LOG_ONLY:true}
   api:
     # 내 PC에서 띄운 lolog-api
     internal-url: http://localhost:8080

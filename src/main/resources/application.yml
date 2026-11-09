@@ -26,6 +26,9 @@ lolog:
   internal:
     # lolog-api /internal 주소의 X-Internal-Token 값. lolog-api·워커와 같은 값이다. 없으면 서버가 뜨지 않는다.
     token: ${INTERNAL_TOKEN}
+  mail:
+    # 가입 인증 메일의 보내는 사람 주소. 배포는 MAIL_FROM(application-prod.yml).
+    from: ${MAIL_FROM:}
   api:
     # 탈퇴 때 DELETE /internal/users/{id}를 부를 lolog-api 주소(deployment.md 4장, 배포는 http://api:8080)
     internal-url: ${API_INTERNAL_URL}
