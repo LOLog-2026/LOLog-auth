@@ -11,6 +11,7 @@ import com.lolog.auth.SignupCodes;
 import com.lolog.auth.email.EmailCodeStore;
 import com.lolog.auth.TestContainers;
 import com.lolog.auth.token.AccessTokens;
+import com.lolog.auth.token.TokenService;
 import com.lolog.auth.user.SocialAccount;
 import com.lolog.auth.user.SocialAccountRepository;
 import com.lolog.auth.user.SocialProvider;
@@ -51,6 +52,9 @@ class MeApiTests {
 	@Autowired
 	MutableClock clock;
 
+	@Autowired
+	TokenService tokens;
+
 	@BeforeEach
 	void resetClock() {
 		clock.reset();
@@ -64,7 +68,18 @@ class MeApiTests {
 		me("Bearer " + token).andExpect(status().isOk())
 			.andExpect(jsonPath("$.email").value(email))
 			.andExpect(jsonPath("$.linkedProviders").isArray())
-			.andExpect(jsonPath("$.linkedProviders.length()").value(0));
+			.andExpect(jsonPath("$.linkedProviders.length()").value(0))
+			.andExpect(jsonPath("$.hasPassword").value(true));
+	}
+
+	@Test
+	void 소셜로만_가입한_계정은_hasPassword가_false다() throws Exception {
+		User user = users.saveAndFlush(User.social(newEmail(), OffsetDateTime.now()));
+		socialAccounts.saveAndFlush(new SocialAccount(user.getId(), SocialProvider.NAVER, "n-" + user.getId(), OffsetDateTime.now()));
+
+		me("Bearer " + tokens.issue(user.getId()).accessToken()).andExpect(status().isOk())
+			.andExpect(jsonPath("$.hasPassword").value(false))
+			.andExpect(jsonPath("$.linkedProviders[0]").value("NAVER"));
 	}
 
 	@Test

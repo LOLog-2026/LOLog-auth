@@ -1,5 +1,6 @@
 package com.lolog.auth.me;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.lolog.auth.common.ApiException;
 import com.lolog.auth.token.RefreshTokenStore;
 import com.lolog.auth.token.WithdrawnUsers;
@@ -41,7 +42,7 @@ public class MeService {
 	@Transactional(readOnly = true)
 	public MeResponse me(long userId) {
 		User user = activeUser(userId);
-		return new MeResponse(user.getEmail(), linkedProviders(userId));
+		return new MeResponse(user.getEmail(), linkedProviders(userId), user.getPasswordHash() != null);
 	}
 
 	// 회원과 소셜 연결을 소프트 삭제하고 리프레시 토큰을 모두 지운다. 남은 액세스 토큰은 WithdrawnUsers로 막는다.
@@ -73,8 +74,9 @@ public class MeService {
 			.orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "INVALID_TOKEN", "회원이 없습니다."));
 	}
 
-	// MeResponse (api-dto.md 1장)
-	public record MeResponse(String email, List<String> linkedProviders) {
+	// MeResponse (api-dto.md 1장). hasPassword가 false면 소셜로만 가입한 계정이라 앱이 "비밀번호 바꾸기"를 숨긴다.
+	public record MeResponse(String email, List<String> linkedProviders,
+			@JsonProperty("hasPassword") boolean hasPassword) {
 	}
 
 }
