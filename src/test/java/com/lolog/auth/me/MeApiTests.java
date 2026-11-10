@@ -7,6 +7,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.jayway.jsonpath.JsonPath;
 import com.lolog.auth.MutableClock;
+import com.lolog.auth.SignupCodes;
+import com.lolog.auth.email.EmailCodeStore;
 import com.lolog.auth.TestContainers;
 import com.lolog.auth.token.AccessTokens;
 import com.lolog.auth.user.SocialAccount;
@@ -33,6 +35,9 @@ import org.springframework.test.web.servlet.ResultActions;
 @AutoConfigureMockMvc
 @Import({ TestContainers.class, MutableClock.Config.class })
 class MeApiTests {
+
+	@Autowired
+	EmailCodeStore codes;
 
 	@Autowired
 	MockMvc mvc;
@@ -63,18 +68,18 @@ class MeApiTests {
 	}
 
 	@Test
-	void 연결된_소셜_계정은_대문자로_KAKAO_GOOGLE_NAVER_순서다() throws Exception {
+	void 연결된_소셜_계정은_대문자로_GOOGLE_NAVER_순서이고_끊긴_연결은_빠진다() throws Exception {
 		String email = newEmail();
 		String token = signupAccessToken(email);
 		long userId = users.findByEmailAndDeletedAtIsNull(email).orElseThrow().getId();
 		OffsetDateTime now = OffsetDateTime.now();
 		socialAccounts.save(new SocialAccount(userId, SocialProvider.NAVER, "n-" + userId, now));
-		socialAccounts.save(new SocialAccount(userId, SocialProvider.KAKAO, "k-" + userId, now));
-		SocialAccount google = socialAccounts.save(new SocialAccount(userId, SocialProvider.GOOGLE, "g-" + userId, now));
-		google.delete(now);
-		socialAccounts.saveAndFlush(google);
+		SocialAccount oldGoogle = socialAccounts.save(new SocialAccount(userId, SocialProvider.GOOGLE, "g-old-" + userId, now));
+		oldGoogle.delete(now);
+		socialAccounts.saveAndFlush(oldGoogle);
+		socialAccounts.save(new SocialAccount(userId, SocialProvider.GOOGLE, "g-" + userId, now));
 
-		me("Bearer " + token).andExpect(jsonPath("$.linkedProviders[0]").value("KAKAO"))
+		me("Bearer " + token).andExpect(jsonPath("$.linkedProviders[0]").value("GOOGLE"))
 			.andExpect(jsonPath("$.linkedProviders[1]").value("NAVER"))
 			.andExpect(jsonPath("$.linkedProviders.length()").value(2));
 	}
@@ -138,7 +143,7 @@ class MeApiTests {
 	private String signupAccessToken(String email) throws Exception {
 		String body = mvc
 			.perform(post("/auth/signup").contentType(MediaType.APPLICATION_JSON)
-				.content("{\"email\":\"" + email + "\",\"password\":\"password1\"}"))
+				.content(SignupCodes.signupJson(codes, email, "password1")))
 			.andExpect(status().isCreated())
 			.andReturn()
 			.getResponse()

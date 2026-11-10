@@ -48,6 +48,11 @@
 			<artifactId>postgresql</artifactId>
 			<scope>runtime</scope>
 		</dependency>
+		<!-- 가입 인증번호 메일(SMTP, Gmail). FR-AUTH-01 -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-mail</artifactId>
+		</dependency>
 		<!-- 비밀번호 BCrypt 해시(TR-04). 보안 필터 체인은 쓰지 않고 암호화 기능만 쓴다. -->
 		<dependency>
 			<groupId>org.springframework.security</groupId>
