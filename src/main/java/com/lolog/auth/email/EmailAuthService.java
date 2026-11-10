@@ -18,7 +18,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class EmailAuthService {
 
-	private static final int BCRYPT_MAX_BYTES = 72;
+	static final int BCRYPT_MAX_BYTES = 72;
 
 	private final UserRepository users;
 

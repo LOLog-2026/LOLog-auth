@@ -11,11 +11,12 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Component;
 
-// 가입 인증번호를 Redis에 둔다(api-spec.md "가입 인증번호").
-// 키에는 이메일 원문 대신 SHA-256 해시를 쓰고, 번호도 해시로만 둔다.
+// 메일 인증번호를 Redis에 둔다(api-spec.md "가입 인증번호", "비밀번호 찾기 인증번호").
+// 키에는 이메일 원문 대신 SHA-256 해시를 쓰고, 번호도 해시로만 둔다. 용도(Purpose)마다 키를 나눠 서로 바꿔 쓸 수 없다.
 //
-// lolog:auth:email-code:{이메일 해시}          → 해시 { code: 번호 해시, tries: 틀린 횟수, exp: 만료 시각(초) }
-// lolog:auth:email-code-cooldown:{이메일 해시} → 다시 보낼 수 있는 시각(초)
+// lolog:auth:{용도}:{이메일 해시}          → 해시 { code: 번호 해시, tries: 틀린 횟수, exp: 만료 시각(초) }
+// lolog:auth:{용도}-cooldown:{이메일 해시} → 다시 보낼 수 있는 시각(초)
+// 용도: email-code(가입), password-reset-code(비밀번호 찾기)
 //
 // 만료와 다시 보내기 간격은 Redis TTL이 아니라 저장한 시각과 Clock으로 판단한다(테스트에서 시각을 돌릴 수 있게).
 // TTL은 키가 쌓이지 않게 지우는 용도로만, 판단 시간보다 넉넉하게 둔다.
@@ -30,9 +31,6 @@ public class EmailCodeStore {
 
 	private static final Duration KEEP_EXTRA = Duration.ofMinutes(1);
 
-	private static final String CODE_KEY = "lolog:auth:email-code:";
-
-	private static final String COOLDOWN_KEY = "lolog:auth:email-code-cooldown:";
 
 	// 다시 보낼 수 있으면 다음 시각을 적고 1, 아직 간격 안이면 0.
 	private static final RedisScript<Long> TAKE_COOLDOWN = RedisScript.of("""
@@ -81,31 +79,52 @@ public class EmailCodeStore {
 		this.clock = clock;
 	}
 
-	// 60초 간격을 지켰으면 true. 이메일은 소문자로 바꾼 값이어야 한다.
+	// 가입 인증번호용. 아래 Purpose를 받는 메서드에 SIGNUP을 넘긴 것과 같다.
 	public boolean tryStartCooldown(String email) {
+		return tryStartCooldown(Purpose.SIGNUP, email);
+	}
+
+	public void clearCooldown(String email) {
+		clearCooldown(Purpose.SIGNUP, email);
+	}
+
+	public void save(String email, String code) {
+		save(Purpose.SIGNUP, email, code);
+	}
+
+	public void delete(String email) {
+		delete(Purpose.SIGNUP, email);
+	}
+
+	public Result check(String email, String code) {
+		return check(Purpose.SIGNUP, email, code);
+	}
+
+	// 60초 간격을 지켰으면 true. 이메일은 소문자로 바꾼 값이어야 한다.
+	public boolean tryStartCooldown(Purpose purpose, String email) {
 		long now = clock.instant().getEpochSecond();
-		Long result = redis.execute(TAKE_COOLDOWN, List.of(COOLDOWN_KEY + hash(email)), Long.toString(now),
+		Long result = redis.execute(TAKE_COOLDOWN, List.of(purpose.cooldownKey(email)), Long.toString(now),
 				Long.toString(now + COOLDOWN.toSeconds()), Long.toString(COOLDOWN.plus(KEEP_EXTRA).toSeconds()));
 		return result != null && result == 1;
 	}
 
 	// 메일을 보내지 못했을 때 바로 다시 받을 수 있게 간격을 푼다.
-	public void clearCooldown(String email) {
-		redis.delete(COOLDOWN_KEY + hash(email));
+	public void clearCooldown(Purpose purpose, String email) {
+		redis.delete(purpose.cooldownKey(email));
 	}
 
-	public void save(String email, String code) {
+	public void save(Purpose purpose, String email, String code) {
 		long exp = clock.instant().plus(VALIDITY).getEpochSecond();
-		redis.execute(SAVE, List.of(CODE_KEY + hash(email)), hash(code), Long.toString(exp),
+		redis.execute(SAVE, List.of(purpose.codeKey(email)), hash(code), Long.toString(exp),
 				Long.toString(VALIDITY.plus(KEEP_EXTRA).toSeconds()));
 	}
 
-	public void delete(String email) {
-		redis.delete(CODE_KEY + hash(email));
+	public void delete(Purpose purpose, String email) {
+		redis.delete(purpose.codeKey(email));
 	}
 
-	public Result check(String email, String code) {
-		Long result = redis.execute(CHECK, List.of(CODE_KEY + hash(email)), hash(code),
+	public Result check(Purpose purpose, String email, String code) {
+		Long result = redis.execute(CHECK, List.of(purpose.codeKey(email)), hash(code),
 				Long.toString(clock.instant().getEpochSecond()), Integer.toString(MAX_TRIES));
 		if (result == null || result < 0) {
 			return Result.EXPIRED;
@@ -121,6 +140,27 @@ public class EmailCodeStore {
 		catch (NoSuchAlgorithmException e) {
 			throw new IllegalStateException(e);
 		}
+	}
+
+	// 인증번호 용도. 키 이름이 lolog-api와 겹치지 않게 lolog:auth:로 시작한다.
+	public enum Purpose {
+
+		SIGNUP("email-code"), PASSWORD_RESET("password-reset-code");
+
+		private final String name;
+
+		Purpose(String name) {
+			this.name = name;
+		}
+
+		String codeKey(String email) {
+			return "lolog:auth:" + name + ":" + hash(email);
+		}
+
+		String cooldownKey(String email) {
+			return "lolog:auth:" + name + "-cooldown:" + hash(email);
+		}
+
 	}
 
 	public enum Result {

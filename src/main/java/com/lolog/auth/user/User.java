@@ -57,6 +57,11 @@ public class User {
 		return email.trim().toLowerCase(Locale.ROOT);
 	}
 
+	// 비밀번호 찾기·바꾸기(FR-AUTH-07). BCrypt 해시를 받는다.
+	public void changePassword(String passwordHash) {
+		this.passwordHash = passwordHash;
+	}
+
 	public void delete(OffsetDateTime now) {
 		this.deletedAt = now;
 	}
