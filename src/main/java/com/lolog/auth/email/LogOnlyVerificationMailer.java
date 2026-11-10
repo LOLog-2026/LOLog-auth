@@ -23,4 +23,14 @@ public class LogOnlyVerificationMailer implements VerificationMailer {
 		log.info("[로컬 전용] 이미 가입된 이메일이라 안내 메일을 보낼 차례");
 	}
 
+	@Override
+	public void sendPasswordResetCode(String email, String code) {
+		log.info("[로컬 전용] 비밀번호 찾기 인증번호: {}", code);
+	}
+
+	@Override
+	public void sendPasswordResetSocialOnly(String email) {
+		log.info("[로컬 전용] 소셜로만 가입한 계정이라 비밀번호 찾기 안내 메일을 보낼 차례");
+	}
+
 }

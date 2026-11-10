@@ -18,12 +18,22 @@ public class FakeMailer implements VerificationMailer {
 
 	@Override
 	public void sendCode(String email, String code) {
-		send(new Mail(email, code));
+		send(new Mail(email, code, Kind.SIGNUP_CODE));
 	}
 
 	@Override
 	public void sendAlreadyRegistered(String email) {
-		send(new Mail(email, null));
+		send(new Mail(email, null, Kind.ALREADY_REGISTERED));
+	}
+
+	@Override
+	public void sendPasswordResetCode(String email, String code) {
+		send(new Mail(email, code, Kind.RESET_CODE));
+	}
+
+	@Override
+	public void sendPasswordResetSocialOnly(String email) {
+		send(new Mail(email, null, Kind.RESET_SOCIAL_ONLY));
 	}
 
 	private void send(Mail mail) {
@@ -42,8 +52,14 @@ public class FakeMailer implements VerificationMailer {
 		return sent.stream().filter(m -> m.to().equals(email)).count();
 	}
 
-	// code가 null이면 "이미 가입된 계정" 안내 메일이다.
-	public record Mail(String to, String code) {
+	// code가 null이면 번호 대신 안내 메일이다(kind로 어느 안내인지 안다).
+	public record Mail(String to, String code, Kind kind) {
+	}
+
+	public enum Kind {
+
+		SIGNUP_CODE, ALREADY_REGISTERED, RESET_CODE, RESET_SOCIAL_ONLY
+
 	}
 
 	@TestConfiguration(proxyBeanMethods = false)
