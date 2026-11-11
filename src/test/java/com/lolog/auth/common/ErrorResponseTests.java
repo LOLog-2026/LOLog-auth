@@ -2,6 +2,7 @@ package com.lolog.auth.common;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -18,6 +19,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 // 오류가 모두 ErrorResponse { code, message, field } 모양으로 나가는지 시험용 컨트롤러로 확인한다.
@@ -68,6 +70,46 @@ class ErrorResponseTests {
 			.andExpect(jsonPath("$.message").value("서버 오류가 발생했습니다."));
 	}
 
+	@Test
+	void 없는_주소는_404_NOT_FOUND다() throws Exception {
+		mvc.perform(get("/test/nothing"))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.code").value("NOT_FOUND"))
+			.andExpect(jsonPath("$.field").isEmpty());
+	}
+
+	@Test
+	void 틀린_메서드는_405_METHOD_NOT_ALLOWED이고_Allow_헤더를_준다() throws Exception {
+		mvc.perform(get("/test/body"))
+			.andExpect(status().isMethodNotAllowed())
+			.andExpect(header().string("Allow", "POST"))
+			.andExpect(jsonPath("$.code").value("METHOD_NOT_ALLOWED"));
+	}
+
+	@Test
+	void JSON이_아닌_Content_Type은_415_UNSUPPORTED_MEDIA_TYPE이다() throws Exception {
+		mvc.perform(post("/test/body").contentType(MediaType.TEXT_PLAIN).content("a"))
+			.andExpect(status().isUnsupportedMediaType())
+			.andExpect(jsonPath("$.code").value("UNSUPPORTED_MEDIA_TYPE"));
+		mvc.perform(post("/test/body").content("{\"email\":\"a@example.com\"}"))
+			.andExpect(status().isUnsupportedMediaType())
+			.andExpect(jsonPath("$.code").value("UNSUPPORTED_MEDIA_TYPE"));
+	}
+
+	@Test
+	void JSON을_받을_수_없다고_하면_406이다() throws Exception {
+		// 본문은 JSON으로 쓸 수 없으니 상태만 본다.
+		mvc.perform(get("/test/conflict-ok").accept(MediaType.TEXT_HTML)).andExpect(status().isNotAcceptable());
+	}
+
+	@Test
+	void 빠진_필수_쿼리는_400_INVALID_REQUEST이고_field는_쿼리_이름이다() throws Exception {
+		mvc.perform(get("/test/query"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+			.andExpect(jsonPath("$.field").value("q"));
+	}
+
 	record Body(@NotBlank String email) {
 	}
 
@@ -81,6 +123,15 @@ class ErrorResponseTests {
 
 		@PostMapping("/test/body")
 		void body(@Valid @RequestBody Body body) {
+		}
+
+		@GetMapping("/test/conflict-ok")
+		Body ok() {
+			return new Body("a@example.com");
+		}
+
+		@GetMapping("/test/query")
+		void query(@RequestParam String q) {
 		}
 
 		@GetMapping("/test/boom")
