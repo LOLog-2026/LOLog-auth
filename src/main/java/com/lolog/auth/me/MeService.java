@@ -51,7 +51,12 @@ public class MeService {
 	// lolog-api 데이터 삭제는 UserDataDeleter가 맡는다.
 	@Transactional
 	public void withdraw(long userId) {
-		User user = activeUser(userId);
+		withdrawUser(activeUser(userId));
+	}
+
+	// 탈퇴 처리 본체. 본인 탈퇴와 관리자가 탈퇴시키기(AdminWithdrawService)가 같이 쓰고, 부르는 쪽 트랜잭션 안에서 돈다.
+	public void withdrawUser(User user) {
+		long userId = user.getId();
 		OffsetDateTime now = OffsetDateTime.now(clock);
 		user.delete(now);
 		socialAccounts.findByUserIdAndDeletedAtIsNull(userId).forEach(account -> account.delete(now));

@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.jayway.jsonpath.JsonPath;
 import com.lolog.auth.TestContainers;
+import com.lolog.auth.admin.AdminWithdrawService;
 import com.lolog.auth.me.MeService;
 import com.lolog.auth.token.TokenService;
 import com.lolog.auth.user.SocialAccount;
@@ -64,6 +65,9 @@ class SocialAuthApiTests {
 
 	@Autowired
 	JdbcTemplate jdbc;
+
+	@Autowired
+	AdminWithdrawService adminWithdrawals;
 
 	@Autowired
 	UserRepository users;
@@ -455,6 +459,32 @@ class SocialAuthApiTests {
 
 		jdbc.update("UPDATE users SET suspended_until = now() - interval '1 second' WHERE id = ?", userId);
 		social("naver", "naver-suspended-" + id).andExpect(status().isOk());
+	}
+
+	@Test
+	void 관리자가_탈퇴시킨_소셜_계정으로는_로그인도_다른_계정_연결도_409_ACCOUNT_BANNED다() throws Exception {
+		String id = newId();
+		fake.naverProfiles.put("naver-banned-" + id, FakeSocialProviders.naverProfile(id, id + "@example.com"));
+		social("naver", "naver-banned-" + id).andExpect(status().isOk());
+		long userId = users.findByEmailAndDeletedAtIsNull(id + "@example.com").orElseThrow().getId();
+		adminWithdrawals.withdraw(userId);
+
+		social("naver", "naver-banned-" + id).andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("ACCOUNT_BANNED"));
+		link(emailUser(), "naver", "naver-banned-" + id).andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("ACCOUNT_BANNED"));
+	}
+
+	@Test
+	void 관리자가_탈퇴시킨_계정의_이메일로는_다른_소셜_계정으로도_처음_가입할_수_없다() throws Exception {
+		User target = emailUser();
+		adminWithdrawals.withdraw(target.getId());
+		String id = newId();
+		fake.naverProfiles.put("naver-same-email-" + id, FakeSocialProviders.naverProfile(id, target.getEmail()));
+
+		social("naver", "naver-same-email-" + id).andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("ACCOUNT_BANNED"));
+		assertThat(users.findByEmailAndDeletedAtIsNull(target.getEmail())).isEmpty();
 	}
 
 	@Test

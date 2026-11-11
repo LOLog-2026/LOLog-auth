@@ -1,5 +1,6 @@
 package com.lolog.auth.admin;
 
+import com.lolog.auth.me.UserDataDeleter;
 import com.lolog.auth.token.CurrentUser;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -22,11 +23,17 @@ public class AdminController {
 
 	private final SuspensionNotifier suspensionNotifier;
 
+	private final AdminWithdrawService withdrawals;
+
+	private final UserDataDeleter userDataDeleter;
+
 	public AdminController(AdminUserService adminUsers, AdminSuspensionService suspensions,
-			SuspensionNotifier suspensionNotifier) {
+			SuspensionNotifier suspensionNotifier, AdminWithdrawService withdrawals, UserDataDeleter userDataDeleter) {
 		this.adminUsers = adminUsers;
 		this.suspensions = suspensions;
 		this.suspensionNotifier = suspensionNotifier;
+		this.withdrawals = withdrawals;
+		this.userDataDeleter = userDataDeleter;
 	}
 
 	// GET /auth/admin/users → 200 { users, nextCursor }
@@ -55,6 +62,16 @@ public class AdminController {
 		adminUsers.requireAdmin(userId);
 		suspensions.unsuspend(id);
 		suspensionNotifier.tryNotify(id);
+	}
+
+	// DELETE /auth/admin/users/{id} → 204. 본인 탈퇴(DELETE /auth/me)처럼 lolog-api 데이터 삭제는 한 번 불러 보고,
+	// 실패하면 뒤에서 다시 부른다. 그 계정의 이메일·소셜 계정으로는 다시 가입할 수 없다.
+	@DeleteMapping("/auth/admin/users/{id}")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	public void withdraw(@CurrentUser Long userId, @PathVariable long id) {
+		adminUsers.requireAdmin(userId);
+		withdrawals.withdraw(id);
+		userDataDeleter.tryDelete(id);
 	}
 
 	// SuspendRequest(spec/admin.md 7장). duration MONTH_1·MONTH_3·MONTH_6·PERMANENT, reason 1~200자
