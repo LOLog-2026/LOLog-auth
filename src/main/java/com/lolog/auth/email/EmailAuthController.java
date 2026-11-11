@@ -54,8 +54,9 @@ public class EmailAuthController {
 			@NotNull @Pattern(regexp = "^[0-9]{6}$") String code) {
 	}
 
-	// 로그인은 비밀번호 규칙을 검사하지 않는다. 값이 빠졌을 때만 400이다.
-	public record LoginRequest(@NotBlank String email, @NotNull String password) {
+	// 로그인도 이메일 형식(254자 이하)은 가입과 같게 검사한다(LOLog-docs PR #60). 비밀번호 규칙은 검사하지 않고,
+	// 값이 빠졌을 때만 400이다(규칙이 바뀌기 전에 만든 비밀번호로도 로그인되게).
+	public record LoginRequest(@NotBlank @Email @Size(max = 254) String email, @NotNull String password) {
 	}
 
 }
