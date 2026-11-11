@@ -1,6 +1,8 @@
 package com.lolog.auth.token;
 
 import com.lolog.auth.common.ApiException;
+import com.lolog.auth.user.Role;
+import com.lolog.auth.user.User;
 import com.lolog.auth.user.UserRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -21,8 +23,10 @@ public class TokenService {
 		this.users = users;
 	}
 
+	// 액세스 토큰의 role은 발급할 때 DB에서 읽는다. 관리자에서 빼도 이미 준 토큰은 만료(30분)까지 그대로다.
 	public TokenResponse issue(long userId) {
-		return new TokenResponse(accessTokens.issue(userId), refreshTokens.issue(userId),
+		Role role = users.findById(userId).map(User::getRole).orElse(Role.USER);
+		return new TokenResponse(accessTokens.issue(userId, role), refreshTokens.issue(userId),
 				(int) AccessTokenIssuer.VALIDITY.toSeconds());
 	}
 

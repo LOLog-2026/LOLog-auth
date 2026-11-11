@@ -2,10 +2,13 @@ package com.lolog.auth.user;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.Locale;
 
@@ -34,6 +37,21 @@ public class User {
 	// lolog-api가 이 회원의 데이터를 다 지운 시각. 탈퇴했는데 비어 있으면 다시 부른다.
 	@Column(name = "data_deleted_at")
 	private OffsetDateTime dataDeletedAt;
+
+	// 관리자는 DB에서 직접 ADMIN으로 바꿔 정한다(spec/admin.md 1장).
+	@Enumerated(EnumType.STRING)
+	@Column(nullable = false, length = 10)
+	private Role role = Role.USER;
+
+	// 정지 시각. NULL이면 정지 아님. suspendedUntil이 NULL이면 영구 정지다.
+	@Column(name = "suspended_at")
+	private OffsetDateTime suspendedAt;
+
+	@Column(name = "suspended_until")
+	private OffsetDateTime suspendedUntil;
+
+	@Column(name = "suspended_reason", length = 200)
+	private String suspendedReason;
 
 	protected User() {
 	}
@@ -74,6 +92,15 @@ public class User {
 		return deletedAt != null;
 	}
 
+	public boolean isAdmin() {
+		return role == Role.ADMIN;
+	}
+
+	// 지금 정지 중인지. 기한이 지났으면 저절로 풀린 것으로 본다.
+	public boolean isSuspended(Instant now) {
+		return suspendedAt != null && (suspendedUntil == null || now.isBefore(suspendedUntil.toInstant()));
+	}
+
 	public Long getId() {
 		return id;
 	}
@@ -96,6 +123,22 @@ public class User {
 
 	public OffsetDateTime getDataDeletedAt() {
 		return dataDeletedAt;
+	}
+
+	public Role getRole() {
+		return role;
+	}
+
+	public OffsetDateTime getSuspendedAt() {
+		return suspendedAt;
+	}
+
+	public OffsetDateTime getSuspendedUntil() {
+		return suspendedUntil;
+	}
+
+	public String getSuspendedReason() {
+		return suspendedReason;
 	}
 
 }

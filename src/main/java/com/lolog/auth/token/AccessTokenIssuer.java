@@ -1,5 +1,6 @@
 package com.lolog.auth.token;
 
+import com.lolog.auth.user.Role;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
@@ -15,7 +16,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 // 액세스 토큰(JWT)을 만든다(api-dto.md "토큰").
-// 서명 HS256, 비밀값 JWT_SECRET(32바이트 이상)은 lolog-api와 같다. 클레임은 sub(사용자 ID 문자열), typ="access", iat, exp.
+// 서명 HS256, 비밀값 JWT_SECRET(32바이트 이상)은 lolog-api와 같다. 클레임은 sub(사용자 ID 문자열), typ="access", iat, exp,
+// role(USER·ADMIN). lolog-api는 role로 /api/admin/**을 막는다(LOLog-docs PR #59 spec/admin.md 1장).
 @Component
 public class AccessTokenIssuer {
 
@@ -42,11 +44,12 @@ public class AccessTokenIssuer {
 		this.clock = clock;
 	}
 
-	public String issue(long userId) {
+	public String issue(long userId, Role role) {
 		// JWT 시각은 초 단위라 밀리초를 버린다. exp = iat + 1800
 		Instant now = clock.instant().truncatedTo(java.time.temporal.ChronoUnit.SECONDS);
 		JWTClaimsSet claims = new JWTClaimsSet.Builder().subject(Long.toString(userId))
 			.claim("typ", "access")
+			.claim("role", role.name())
 			.issueTime(Date.from(now))
 			.expirationTime(Date.from(now.plus(VALIDITY)))
 			.build();
