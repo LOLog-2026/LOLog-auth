@@ -10,6 +10,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Locale;
 
 // 회원. 탈퇴하면 행을 지우지 않고 deletedAt만 채운다(FR-AUTH-05).
@@ -53,6 +54,10 @@ public class User {
 	@Column(name = "suspended_reason", length = 200)
 	private String suspendedReason;
 
+	// 정지·해제를 lolog-api에 아직 알리지 못했으면 true. 알릴 때까지 SuspensionNotifier가 다시 부른다.
+	@Column(name = "suspension_notify_pending", nullable = false)
+	private boolean suspensionNotifyPending;
+
 	protected User() {
 	}
 
@@ -94,6 +99,27 @@ public class User {
 
 	public boolean isAdmin() {
 		return role == Role.ADMIN;
+	}
+
+	// 정지한다(#22). until이 null이면 영구 정지다. 이미 정지 중이면 새 기한·이유로 바꾼다.
+	// 시각은 DB(PostgreSQL, 마이크로초)와 같은 정밀도로 잘라 둔다. 알림 대기를 끝낼 때 이 값으로 비교한다.
+	public void suspend(OffsetDateTime now, OffsetDateTime until, String reason) {
+		this.suspendedAt = now.truncatedTo(ChronoUnit.MICROS);
+		this.suspendedUntil = until;
+		this.suspendedReason = reason;
+		this.suspensionNotifyPending = true;
+	}
+
+	// 정지를 푼다(#22). 정지 기록이 없으면 아무것도 하지 않고 false다.
+	public boolean unsuspend() {
+		if (suspendedAt == null) {
+			return false;
+		}
+		this.suspendedAt = null;
+		this.suspendedUntil = null;
+		this.suspendedReason = null;
+		this.suspensionNotifyPending = true;
+		return true;
 	}
 
 	// 지금 정지 중인지. 기한이 지났으면 저절로 풀린 것으로 본다.
@@ -139,6 +165,10 @@ public class User {
 
 	public String getSuspendedReason() {
 		return suspendedReason;
+	}
+
+	public boolean isSuspensionNotifyPending() {
+		return suspensionNotifyPending;
 	}
 
 }

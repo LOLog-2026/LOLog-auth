@@ -1,10 +1,12 @@
 package com.lolog.auth.user;
 
 import jakarta.persistence.LockModeType;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -24,5 +26,15 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
 	// 탈퇴했지만 lolog-api 데이터 삭제가 아직 끝나지 않은 회원
 	List<User> findByDeletedAtIsNotNullAndDataDeletedAtIsNull();
+
+	// 정지·해제를 lolog-api에 아직 알리지 못한 회원(#22)
+	List<User> findBySuspensionNotifyPendingTrue();
+
+	// 알린 정지 상태가 지금도 그대로일 때만 알림 대기를 끝낸다. 알리는 동안 관리자가 다시 정지·해제했으면
+	// suspended_at이 달라져 그대로 남고, 다음 주기에 새 상태를 다시 알린다.
+	@Modifying
+	@Query(value = "UPDATE users SET suspension_notify_pending = FALSE WHERE id = :id AND suspension_notify_pending "
+			+ "AND suspended_at IS NOT DISTINCT FROM CAST(:suspendedAt AS TIMESTAMPTZ)", nativeQuery = true)
+	int finishSuspensionNotify(@Param("id") long id, @Param("suspendedAt") OffsetDateTime suspendedAt);
 
 }

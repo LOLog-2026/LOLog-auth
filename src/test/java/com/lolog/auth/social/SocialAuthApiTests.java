@@ -29,6 +29,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -60,6 +61,9 @@ class SocialAuthApiTests {
 
 	@Autowired
 	MockMvc mvc;
+
+	@Autowired
+	JdbcTemplate jdbc;
 
 	@Autowired
 	UserRepository users;
@@ -435,6 +439,22 @@ class SocialAuthApiTests {
 
 		unlink(user, "google").andExpect(status().isOk())
 			.andExpect(jsonPath("$.linkedProviders.length()").value(0));
+	}
+
+	@Test
+	void 정지된_계정은_소셜_로그인이_403_ACCOUNT_SUSPENDED이고_기한이_지나면_된다() throws Exception {
+		String id = newId();
+		fake.naverProfiles.put("naver-suspended-" + id, FakeSocialProviders.naverProfile(id, id + "@example.com"));
+		social("naver", "naver-suspended-" + id).andExpect(status().isOk());
+		long userId = users.findByEmailAndDeletedAtIsNull(id + "@example.com").orElseThrow().getId();
+		jdbc.update("UPDATE users SET suspended_at = now(), suspended_until = now() + interval '1 hour' WHERE id = ?",
+				userId);
+
+		social("naver", "naver-suspended-" + id).andExpect(status().isForbidden())
+			.andExpect(jsonPath("$.code").value("ACCOUNT_SUSPENDED"));
+
+		jdbc.update("UPDATE users SET suspended_until = now() - interval '1 second' WHERE id = ?", userId);
+		social("naver", "naver-suspended-" + id).andExpect(status().isOk());
 	}
 
 	@Test
