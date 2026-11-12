@@ -42,7 +42,8 @@ public class MeService {
 	@Transactional(readOnly = true)
 	public MeResponse me(long userId) {
 		User user = activeUser(userId);
-		return new MeResponse(user.getEmail(), linkedProviders(userId), user.getPasswordHash() != null);
+		return new MeResponse(user.getEmail(), linkedProviders(userId), user.getPasswordHash() != null,
+				user.getRole().name());
 	}
 
 	// 회원과 소셜 연결을 소프트 삭제하고 리프레시 토큰을 모두 지운다. 남은 액세스 토큰은 WithdrawnUsers로 막는다.
@@ -75,8 +76,9 @@ public class MeService {
 	}
 
 	// MeResponse (api-dto.md 1장). hasPassword가 false면 소셜로만 가입한 계정이라 앱이 "비밀번호 바꾸기"를 숨긴다.
+	// role이 ADMIN이면 앱이 관리자 화면을 연다(LOLog-docs PR #59 spec/admin.md 1장).
 	public record MeResponse(String email, List<String> linkedProviders,
-			@JsonProperty("hasPassword") boolean hasPassword) {
+			@JsonProperty("hasPassword") boolean hasPassword, String role) {
 	}
 
 }
