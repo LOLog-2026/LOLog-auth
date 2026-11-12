@@ -4,6 +4,7 @@ import com.lolog.auth.common.ApiException;
 import com.lolog.auth.me.MeService;
 import com.lolog.auth.token.TokenResponse;
 import com.lolog.auth.token.TokenService;
+import com.lolog.auth.user.BannedIdentityRepository;
 import com.lolog.auth.user.SocialAccount;
 import com.lolog.auth.user.SocialAccountRepository;
 import com.lolog.auth.user.SocialProvider;
@@ -41,9 +42,11 @@ public class SocialAuthService {
 
 	private final Clock clock;
 
+	private final BannedIdentityRepository bannedIdentities;
+
 	public SocialAuthService(GoogleIdTokenVerifier google, NaverTokenVerifier naver, UserRepository users,
 			SocialAccountRepository socialAccounts, TokenService tokens, MeService me, TransactionTemplate tx,
-			Clock clock) {
+			Clock clock, BannedIdentityRepository bannedIdentities) {
 		this.google = google;
 		this.naver = naver;
 		this.users = users;
@@ -52,18 +55,26 @@ public class SocialAuthService {
 		this.me = me;
 		this.tx = tx;
 		this.clock = clock;
+		this.bannedIdentities = bannedIdentities;
 	}
 
 	// 연결된 소셜 계정이면 그 회원으로 로그인한다. 처음이면 가입도 같이 한다.
 	// 그 이메일로 살아 있는 계정이 이미 있으면 409 ACCOUNT_EXISTS(계정 합치기 없음).
 	// 회사가 토큰을 확인해 주지 않거나, 이메일을 주지 않았거나 인증 안 된 이메일이면 401 INVALID_TOKEN이다.
+	// 관리자가 탈퇴시킨 계정의 소셜 계정이나, 처음 가입하는데 그 계정의 이메일이면 409 ACCOUNT_BANNED다(spec/admin.md 3장).
 	public Result login(SocialProvider provider, String providerToken) {
 		SocialProfile profile = verify(provider, providerToken);
+		if (bannedIdentities.isSocialBanned(provider, profile.providerUserId())) {
+			throw banned();
+		}
 		Optional<Long> linked = linkedUserId(provider, profile.providerUserId());
 		if (linked.isPresent()) {
 			return new Result(tokens.issue(linked.get()), false);
 		}
 		String email = usableEmail(profile.email());
+		if (bannedIdentities.isEmailBanned(email)) {
+			throw banned();
+		}
 		long userId;
 		try {
 			userId = tx.execute(status -> {
@@ -89,11 +100,15 @@ public class SocialAuthService {
 	// 로그인한 회원에 소셜 계정을 붙인다. 이미 내 계정에 붙어 있으면 그대로 200이다.
 	// 그 소셜 계정이 다른 계정에 붙어 있거나, 내 계정에 같은 회사의 다른 계정이 붙어 있으면 409 SOCIAL_ALREADY_LINKED.
 	// 연결에는 이메일을 쓰지 않으므로 회사가 이메일을 주지 않아도 된다.
+	// 관리자가 탈퇴시킨 계정의 소셜 계정은 다른 계정에도 붙일 수 없다(409 ACCOUNT_BANNED). 붙이면 그 소셜 계정으로 다시 들어오게 된다.
 	public List<String> link(long userId, SocialProvider provider, String providerToken) {
 		if (users.findByIdAndDeletedAtIsNull(userId).isEmpty()) {
 			throw new ApiException(HttpStatus.UNAUTHORIZED, "INVALID_TOKEN", "회원이 없습니다.");
 		}
 		SocialProfile profile = verify(provider, providerToken);
+		if (bannedIdentities.isSocialBanned(provider, profile.providerUserId())) {
+			throw banned();
+		}
 		try {
 			tx.executeWithoutResult(status -> {
 				Optional<SocialAccount> existing = socialAccounts
@@ -174,6 +189,10 @@ public class SocialAuthService {
 
 	private static ApiException invalidToken() {
 		return new ApiException(HttpStatus.UNAUTHORIZED, "INVALID_TOKEN", "소셜 계정을 확인하지 못했습니다.");
+	}
+
+	private static ApiException banned() {
+		return new ApiException(HttpStatus.CONFLICT, "ACCOUNT_BANNED", "가입할 수 없는 계정입니다.");
 	}
 
 	private static ApiException alreadyLinked() {

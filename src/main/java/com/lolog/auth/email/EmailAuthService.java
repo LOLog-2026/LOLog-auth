@@ -3,6 +3,7 @@ package com.lolog.auth.email;
 import com.lolog.auth.common.ApiException;
 import com.lolog.auth.token.TokenResponse;
 import com.lolog.auth.token.TokenService;
+import com.lolog.auth.user.BannedIdentityRepository;
 import com.lolog.auth.user.User;
 import com.lolog.auth.user.UserRepository;
 import java.nio.charset.StandardCharsets;
@@ -33,17 +34,21 @@ public class EmailAuthService {
 
 	private final EmailVerificationService verification;
 
+	private final BannedIdentityRepository bannedIdentities;
+
 	public EmailAuthService(UserRepository users, TokenService tokens, Clock clock,
-			EmailVerificationService verification) {
+			EmailVerificationService verification, BannedIdentityRepository bannedIdentities) {
 		this.users = users;
 		this.tokens = tokens;
 		this.clock = clock;
 		this.verification = verification;
+		this.bannedIdentities = bannedIdentities;
 	}
 
 	// 인증번호를 먼저 확인하고(틀림 400 INVALID_CODE, 없음·만료 400 CODE_EXPIRED), 맞을 때만 가입 여부를 본다.
 	// 그래서 번호를 받을 수 없는 남은 409로 가입 여부를 알아낼 수 없다.
 	// 이미 가입된 이메일(소셜 가입 포함)이면 409 ACCOUNT_EXISTS. 탈퇴한 계정의 이메일로는 다시 가입할 수 있다.
+	// 다만 관리자가 탈퇴시킨 계정의 이메일이면 409 ACCOUNT_BANNED다(LOLog-docs PR #59 spec/admin.md 3장).
 	public TokenResponse signup(String email, String password, String code) {
 		// BCrypt는 72바이트까지만 받는다. 64자 안이어도 한글처럼 여러 바이트인 글자가 많으면 넘을 수 있다.
 		if (password.getBytes(StandardCharsets.UTF_8).length > BCRYPT_MAX_BYTES) {
@@ -51,6 +56,9 @@ public class EmailAuthService {
 		}
 		String normalized = User.normalizeEmail(email);
 		verification.verify(normalized, code);
+		if (bannedIdentities.isEmailBanned(normalized)) {
+			throw new ApiException(HttpStatus.CONFLICT, "ACCOUNT_BANNED", "가입할 수 없는 이메일입니다.");
+		}
 		if (users.existsByEmailAndDeletedAtIsNull(normalized)) {
 			throw accountExists();
 		}

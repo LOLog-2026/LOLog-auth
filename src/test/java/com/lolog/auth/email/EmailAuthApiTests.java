@@ -326,6 +326,17 @@ class EmailAuthApiTests {
 	}
 
 	@Test
+	void 로그인의_이메일_형식이_틀리면_400_INVALID_REQUEST다() throws Exception {
+		for (String email : new String[] { "not-an-email", "a@", "@example.com", "a".repeat(243) + "@example.com" }) {
+			login(email, "password1").andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+				.andExpect(jsonPath("$.field").value("email"));
+		}
+		post("/auth/login", "{\"password\":\"password1\"}").andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.field").value("email"));
+	}
+
+	@Test
 	void 로그인_값이_빠지면_400_INVALID_REQUEST다() throws Exception {
 		post("/auth/login", "{\"email\":\"a@example.com\"}").andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.field").value("password"));

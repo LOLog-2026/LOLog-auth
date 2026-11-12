@@ -69,7 +69,8 @@ class MeApiTests {
 			.andExpect(jsonPath("$.email").value(email))
 			.andExpect(jsonPath("$.linkedProviders").isArray())
 			.andExpect(jsonPath("$.linkedProviders.length()").value(0))
-			.andExpect(jsonPath("$.hasPassword").value(true));
+			.andExpect(jsonPath("$.hasPassword").value(true))
+			.andExpect(jsonPath("$.role").value("USER"));
 	}
 
 	@Test
