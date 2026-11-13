@@ -161,6 +161,23 @@ class WithdrawApiTests {
 	}
 
 	@Test
+	void 탈퇴한_회원의_토큰은_본문이_틀려도_400보다_401_INVALID_TOKEN이_먼저다() throws Exception {
+		String token = accessToken(signup(newEmail()));
+		withdraw(token).andExpect(status().isNoContent());
+
+		mvc.perform(post("/auth/me/social/kakao").header("Authorization", "Bearer " + token)
+			.contentType(MediaType.APPLICATION_JSON)
+			.content("{}"))
+			.andExpect(status().isUnauthorized())
+			.andExpect(jsonPath("$.code").value("INVALID_TOKEN"));
+		mvc.perform(post("/auth/me/password").header("Authorization", "Bearer " + token)
+			.contentType(MediaType.APPLICATION_JSON)
+			.content("{"))
+			.andExpect(status().isUnauthorized())
+			.andExpect(jsonPath("$.code").value("INVALID_TOKEN"));
+	}
+
+	@Test
 	void 토큰이_없으면_401_INVALID_TOKEN이고_아무것도_지우지_않는다() throws Exception {
 		mvc.perform(delete("/auth/me")).andExpect(status().isUnauthorized())
 			.andExpect(jsonPath("$.code").value("INVALID_TOKEN"));

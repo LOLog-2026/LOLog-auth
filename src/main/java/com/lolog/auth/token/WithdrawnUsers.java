@@ -29,6 +29,10 @@ public class WithdrawnUsers {
 		this.clock = clock;
 	}
 
+	public boolean contains(long userId) {
+		return Boolean.TRUE.equals(redis.hasKey(KEY + userId));
+	}
+
 	public void add(long userId) {
 		redis.opsForValue().set(KEY + userId, Long.toString(clock.instant().getEpochSecond()), TTL);
 	}
