@@ -30,7 +30,8 @@ public class TokenService {
 	}
 
 	// 액세스 토큰의 role은 발급할 때 DB에서 읽는다. 관리자에서 빼도 이미 준 토큰은 만료(30분)까지 그대로다.
-	// 정지된 회원에게는 토큰을 주지 않는다: 로그인(이메일·소셜)과 갱신이 403 ACCOUNT_SUSPENDED다(spec/admin.md 2장).
+	// 정지된 회원에게는 토큰을 주지 않는다: 로그인(이메일·소셜)이 403 ACCOUNT_SUSPENDED다(spec/admin.md 2장).
+	// 갱신은 정지할 때 리프레시 토큰을 모두 지워서 여기까지 오지 않고 401 INVALID_TOKEN이다(정함 11-13). 이 검사는 남겨 둔다.
 	// 이메일 로그인은 비밀번호가 맞은 뒤에 여기에 오므로, 틀린 비밀번호로는 정지 여부를 알 수 없다.
 	public TokenResponse issue(long userId) {
 		Optional<User> user = users.findById(userId);

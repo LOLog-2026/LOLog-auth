@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.lolog.auth.token.AccessTokenVerifier;
 import com.lolog.auth.token.SuspendedUsers;
+import com.lolog.auth.token.WithdrawnUsers;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import org.junit.jupiter.api.Test;
@@ -27,7 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
 // 오류가 모두 ErrorResponse { code, message, field } 모양으로 나가는지 시험용 컨트롤러로 확인한다.
 @WebMvcTest(ErrorResponseTests.TestController.class)
 // @WebMvcTest도 @CurrentUser 처리기(CurrentUserResolver)를 올리므로 그 검사기와 시계를 같이 넣는다.
-// 정지 키 확인(SuspendedUsers)은 Redis가 필요해 가짜로 둔다.
+// 정지·탈퇴 키 확인(SuspendedUsers·WithdrawnUsers)은 Redis가 필요해 가짜로 둔다.
 @Import({ ErrorResponseTests.TestController.class, GlobalExceptionHandler.class, AccessTokenVerifier.class,
 		TimeConfig.class })
 class ErrorResponseTests {
@@ -37,6 +38,9 @@ class ErrorResponseTests {
 
 	@MockitoBean
 	SuspendedUsers suspendedUsers;
+
+	@MockitoBean
+	WithdrawnUsers withdrawnUsers;
 
 	@Test
 	void 명세의_오류_코드는_그대로_나간다() throws Exception {
